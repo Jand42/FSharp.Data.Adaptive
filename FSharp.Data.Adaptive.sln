@@ -14,6 +14,10 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Fable", "src\Demo\Fable\Fab
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "EventInterop", "src\Demo\EventInterop\EventInterop.fsproj", "{B978F3DF-9F10-493E-97E9-0248491D41D9}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "PreCompiler", "PreCompiler", "{65B401B9-1601-4147-B904-9D598D162A9C}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FSharp.Data.Adaptive.PreCompiler", "src\PreCompiler\FSharp.Data.Adaptive.PreCompiler\FSharp.Data.Adaptive.PreCompiler.fsproj", "{94809BA9-6484-416B-A429-BDBC3CF8403C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -40,6 +44,10 @@ Global
 		{B978F3DF-9F10-493E-97E9-0248491D41D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B978F3DF-9F10-493E-97E9-0248491D41D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B978F3DF-9F10-493E-97E9-0248491D41D9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{94809BA9-6484-416B-A429-BDBC3CF8403C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{94809BA9-6484-416B-A429-BDBC3CF8403C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94809BA9-6484-416B-A429-BDBC3CF8403C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{94809BA9-6484-416B-A429-BDBC3CF8403C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -47,6 +55,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{03B1322E-F6C8-4CF2-84DD-8996A2373479} = {B5A29D79-4C76-4148-A69F-814ED1BEEFCE}
 		{B978F3DF-9F10-493E-97E9-0248491D41D9} = {B5A29D79-4C76-4148-A69F-814ED1BEEFCE}
+		{94809BA9-6484-416B-A429-BDBC3CF8403C} = {65B401B9-1601-4147-B904-9D598D162A9C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0E91AEEA-75F2-484D-8E5E-E3322D13C65A}

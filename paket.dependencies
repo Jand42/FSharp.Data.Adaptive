@@ -20,6 +20,12 @@ nuget BenchmarkDotNet                       ~> 0.11.5
 nuget Fable.Core                            ~> 3.1.1
 nuget Fable.Browser.Dom                     ~> 1.1.0
 
+# PreCompiler
+nuget BlackFox.VsWhere                      ~> 1.0.0
+nuget Dotnet.ProjInfo                       ~> 0.36.0
+nuget Dotnet.ProjInfo.Workspace             ~> 0.36.0
+nuget FSharp.Compiler.Service               ~> 32.0.0	
+
 group Build
   source https://api.nuget.org/v3/index.json
   nuget fake-cli ~> 5.16.1
