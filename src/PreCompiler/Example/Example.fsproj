@@ -11,6 +11,8 @@
     <OutputPath>..\..\..\bin\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="TestModel.fs" />
+    <Compile Include="TestModel.g.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

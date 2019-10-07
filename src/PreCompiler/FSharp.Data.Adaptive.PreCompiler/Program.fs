@@ -288,24 +288,40 @@ let generateFilesForProject (checker : FSharpChecker) (info : ProjectInfo) =
 
 
     for file in info.files do
+        let name = Path.GetFileNameWithoutExtension file
+
         let path = Path.Combine(projDir, file)
         let content = File.ReadAllText path
         let text = FSharp.Compiler.Text.SourceText.ofString content
         let (_parseResult, answer) = checker.ParseAndCheckFileInProject(file, 0, text, options) |> Async.RunSynchronously
-
+        
         match answer with
         | FSharpCheckFileAnswer.Succeeded res ->
             let adaptors = 
                 res.PartialAssemblySignature.Entities
                 |> Seq.toList
-                |> List.collect Adaptor.generate
-                
-            for a in adaptors do  
-                match a.definition Map.empty with
-                | Some def ->
-                    printfn "%s" def
-                | None ->
-                    ()
+                |> List.collect (fun e -> Adaptor.generate { qualifiedPath = Option.toList e.Namespace; file = path } e)
+                |> List.groupBy (fun (f, _, _) -> f)
+                |> List.map (fun (f, els) -> 
+                    f, els |> List.map (fun (_,m,c) -> m, c) |> List.groupBy fst |> List.map (fun (m,ds) -> m, List.map snd ds) |> Map.ofList
+                )
+                |> Map.ofList
+
+            let builder = System.Text.StringBuilder()
+
+            for (ns, modules) in Map.toSeq adaptors do
+                sprintf "namespace %s" ns |> builder.AppendLine |> ignore
+                sprintf "open FSharp.Data.Adaptive" |> builder.AppendLine |> ignore
+                for (m, def) in Map.toSeq modules do
+                    sprintf "[<AutoOpen>]" |> builder.AppendLine |> ignore
+                    sprintf "module rec %s =" m |> builder.AppendLine |> ignore
+                    for d in def do
+                        for l in d do
+                            sprintf "    %s" l |> builder.AppendLine |> ignore
+
+            if builder.Length > 0 then
+                let file = Path.ChangeExtension(path, ".g.fs")
+                File.WriteAllText(file, builder.ToString())
 
 
 
