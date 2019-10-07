@@ -1,4 +1,4 @@
-﻿namespace SomeNamespace 
+﻿module SomeNamespace 
 
 open FSharp.Data.Adaptive
 
@@ -7,14 +7,18 @@ type Value =
     { value : int }
 
 [<ModelType>]
-type Record =
-    {
-        foo : IndexList<int>
-        bar : IndexList<Value>
-    }
-
-
-[<ModelType>]
 type SimpleUnion =
     | CaseA of value : int
     | CaseB of float : float * int : IndexList<Value>
+    | CaseC
+
+[<ModelType>]
+type Record =
+    {
+        opt : Option<HashSet<int>>
+        foo : IndexList<int>
+        bar : IndexList<Value>
+        un : SimpleUnion
+        list : IndexList<SimpleUnion>
+    }
+

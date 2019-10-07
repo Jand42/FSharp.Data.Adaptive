@@ -6,15 +6,25 @@ open SomeNamespace
 
 [<EntryPoint>]
 let main argv =
-    let test = AdaptiveRecord.create { foo = IndexList.single 10; bar = IndexList.empty }
+    let test = 
+        AdaptiveRecord.create { 
+            foo = IndexList.single 10
+            bar = IndexList.empty
+            un = CaseC 
+            list = IndexList.empty
+            opt = None
+        }
 
     let _ : alist<int> = test.foo
     let _ : alist<AdaptiveValue> = test.bar
+    let _ : alist<AdaptiveSimpleUnion> = test.list
+    let test : AdaptiveSimpleUnion  = test.un
 
-    let test = AdaptiveSimpleUnion.create (CaseA 20)
+
     match test.GetValue AdaptiveToken.Top with
-    | AdaptiveCaseA v -> ()
-    | AdaptiveCaseB(a, b) -> ()
+    | AdaptiveCaseA(_v : aval<int>) -> ()
+    | AdaptiveCaseB(_a : aval<float>, _b : alist<AdaptiveValue>) -> ()
+    | AdaptiveCaseC -> ()
 
 
 

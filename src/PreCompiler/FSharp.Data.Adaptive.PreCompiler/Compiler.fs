@@ -80,11 +80,22 @@ module FSharpTypePatterns =
         else
             None
 
+
+
     let (|Adaptor|_|) (typ : FSharpType) =
         if FSharpType.hasAdaptorAttribute typ then
             Some typ
         else
             None
+
+    let (|FullName|) (typ : FSharpType) =
+        let targs = typ.GenericArguments |> Seq.toList
+        if typ.HasTypeDefinition then
+            let path = typ.TypeDefinition.AccessPath
+            FullName(path + "." + typ.TypeDefinition.DisplayName, targs)
+        else
+            let name = typ.Format(FSharpDisplayContext.Empty)
+            FullName (name, targs)
 
     let (|FromFSharpDataAdaptive|_|) (typ : FSharpType) =
         if typ.HasTypeDefinition then
@@ -107,6 +118,12 @@ module FSharpTypePatterns =
         | FromFSharpDataAdaptive("HashMap", [key; value]) -> Some (key, value)
         | _ -> None
        
+    let (|Option|_|) (typ : FSharpType) =
+        match typ with
+        | FullName("Microsoft.FSharp.Core.Option", [t])
+        | FullName("Microsoft.FSharp.Core.option", [t]) -> Some t
+        | _ -> None
+
     let (|IndexList|_|) (typ : FSharpType) =
         match typ with
         | FromFSharpDataAdaptive("IndexList", [elementType]) -> Some elementType
@@ -374,6 +391,10 @@ module DomainTypeDescription =
     let rec getAssociatedType (ctx : AdaptorContext) (t : FSharpType) : DomainTypeDescription =
         cached t (fun t ->
             match t with
+            | Option (AnyAdaptive as t) ->
+                let desc = getAssociatedType ctx t
+                optionAdaptor desc
+
             | HashMap (k, (AnyAdaptive as v)) ->
                 let t = getAssociatedType ctx v
                 if t.isTrivial Map.empty then cmap k v
@@ -396,6 +417,73 @@ module DomainTypeDescription =
             | Adaptor t                     -> adaptor ctx t
             | _                             -> cval t
         )
+
+    and optionAdaptor (t : DomainTypeDescription) =
+        let init (targs : GenericArguments) (str : string) =
+            String.concat "\r\n" [
+                let init = (t.init targs "value").Split([|"\r\n"|], StringSplitOptions.None)
+
+                yield sprintf "let cell = "
+                yield sprintf "    match %s with" str
+                yield sprintf "    | Some value ->"
+
+                if init.Length = 1 then
+                    yield sprintf "        let res = %s" init.[0]
+                else
+                    yield sprintf "        let res = "
+                    for i in init do yield sprintf "        %s" i
+
+                yield sprintf "        cval(Some res)"
+                yield sprintf "    | None ->"
+                yield sprintf "        cval None"
+
+                let view = (t.view targs "inner").Split([|"\r\n"|], StringSplitOptions.None)
+                if view.Length = 1 then 
+                    yield sprintf "let inline view inner = %s" view.[0]
+                else
+                    yield sprintf "let inline view inner ="
+                    for i in view do yield sprintf "    %s" i
+
+                yield sprintf "(cell, AVal.map (Option.map view) cell)"
+
+            ]
+
+        let update (targs : GenericArguments) (retValue : bool) (dst : string) (str : string) =
+            let innerFullname = t.name targs
+
+            String.concat "\r\n" [
+                let init = (t.init targs "value").Split([|"\r\n"|], StringSplitOptions.None)
+                let view = (t.view targs "res").Split([|"\r\n"|], StringSplitOptions.None)
+                yield sprintf "let (dst,_) = %s" dst
+
+                yield sprintf "match dst.Value, %s with" str
+                yield sprintf "| Some dst, Some value -> "
+                let update = (t.update targs false "dst" "value").Split([|"\r\n"|], StringSplitOptions.None)
+                for u in update do yield sprintf "    %s" u
+                yield sprintf "| None, Some value ->"
+
+                if init.Length = 1 then 
+                    yield sprintf "    let res = %s" init.[0]
+                else
+                    yield sprintf "    let res = "
+                    for i in init do yield sprintf "        %s" i
+
+                yield sprintf "    dst.Value <- Some res"
+                yield sprintf "| _, None ->"
+                yield sprintf "    dst.Value <- None"
+
+                if retValue then
+                    yield dst
+            ]
+        {
+            isTrivial = fun _ -> false
+            definition = fun _ -> None
+            init = init
+            update = update
+            view = fun _ v -> sprintf "snd %s" v
+            name = fun _ -> "aval<_>"
+            internalName = fun _ -> "cval<_> * aval<_>"
+        }
 
     and cmapAdaptor (key : FSharpType) (valueType : DomainTypeDescription) =    
 
@@ -776,22 +864,34 @@ module DomainTypeDescription =
                 yield sprintf "    static member %s(value : %s) =" createMemberName fullName
                 yield sprintf "        match value with"
                 for (caseName, fields) in cases do
-                    let dArgs = fields |> Seq.map (fun (n,_,_) -> sprintf "_%s" n) |> String.concat ", "
                     let ctorName = sprintf "%s%s" (typeFormat typeName) caseName
-                    yield sprintf "        |  %s(%s) -> %s(value, %s(%s))" caseName dArgs (typeFormat typeName) ctorName dArgs
+                    match fields with
+                    | [] -> 
+                        yield sprintf "        |  %s -> %s(value, %s())" caseName (typeFormat typeName) ctorName
+                    | _ -> 
+                        let dArgs = fields |> Seq.map (fun (n,_,_) -> sprintf "_%s" n) |> String.concat ", "
+                        yield sprintf "        |  %s(%s) -> %s(value, %s(%s))" caseName dArgs (typeFormat typeName) ctorName dArgs
 
                 yield sprintf "    member x.%s(value : %s) =" updateMemberName fullName
                 yield sprintf "        if not (System.Object.ReferenceEquals(__current, value)) then"
                 yield sprintf "            __current <- value"
                 yield sprintf "            match __value, value with"
                 for (caseName, fields) in cases do
-                    let dArgs = fields |> Seq.map (fun (n,_,_) -> sprintf "_%s" n) |> String.concat ", "
                     let ctorName = sprintf "%s%s" (typeFormat typeName) caseName
-                    yield sprintf "            | (:? %s as __dst), %s(%s) -> __dst.%s(%s)" ctorName caseName dArgs updateMemberName dArgs
+                    match fields with
+                    | [] -> 
+                        yield sprintf "            | (:? %s), %s -> ()" ctorName caseName
+                    | _ -> 
+                        let dArgs = fields |> Seq.map (fun (n,_,_) -> sprintf "_%s" n) |> String.concat ", "
+                        yield sprintf "            | (:? %s as __dst), %s(%s) -> __dst.%s(%s)" ctorName caseName dArgs updateMemberName dArgs
                 for (caseName, fields) in cases do
-                    let dArgs = fields |> Seq.map (fun (n,_,_) -> sprintf "_%s" n) |> String.concat ", "
                     let ctorName = sprintf "%s%s" (typeFormat typeName) caseName
-                    yield sprintf "            | _, %s(%s) -> __value <- %s(%s); x.MarkOutdated()" caseName dArgs ctorName dArgs
+                    match fields with
+                    | [] -> 
+                        yield sprintf "            | _, %s -> __value <- %s(); x.MarkOutdated()" caseName ctorName
+                    | _ ->
+                        let dArgs = fields |> Seq.map (fun (n,_,_) -> sprintf "_%s" n) |> String.concat ", "
+                        yield sprintf "            | _, %s(%s) -> __value <- %s(%s); x.MarkOutdated()" caseName dArgs ctorName dArgs
 
 
                 yield sprintf "and %sConstructor =" (typeFormat typeName)
@@ -826,14 +926,15 @@ module DomainTypeDescription =
                             yield sprintf "    member x.%s = " fieldName
                             for l in view do yield sprintf "        %s" l
 
-                    let updateArgs = fields |> List.map (fun (n, _, t) ->  sprintf "_n%s : %s" n t)
-                    yield sprintf "    member x.%s(%s) =" updateMemberName (String.concat ", " updateArgs)
-                    for (fieldName, desc, inputType) in fields do
-                        let t = sprintf "_%s" fieldName
-                        let v = sprintf "_n%s" fieldName
-                        let lines = (desc.update targs false t v).Split([|"\r\n"|], StringSplitOptions.RemoveEmptyEntries)
-                        for l in lines do
-                            yield sprintf "         %s" l
+                    if not (List.isEmpty fields) then
+                        let updateArgs = fields |> List.map (fun (n, _, t) ->  sprintf "_n%s : %s" n t)
+                        yield sprintf "    member x.%s(%s) =" updateMemberName (String.concat ", " updateArgs)
+                        for (fieldName, desc, inputType) in fields do
+                            let t = sprintf "_%s" fieldName
+                            let v = sprintf "_n%s" fieldName
+                            let lines = (desc.update targs false t v).Split([|"\r\n"|], StringSplitOptions.RemoveEmptyEntries)
+                            for l in lines do
+                                yield sprintf "         %s" l
 
                     // interface impl
                     yield sprintf "    interface %sConstructor with" (typeFormat typeName)
@@ -851,9 +952,13 @@ module DomainTypeDescription =
                 yield "    match value with"
                 for (caseName, fields) in cases do
                     let aName = typeFormat caseName
-                    let dArgs = fields |> Seq.map (fun (n,_,_) -> sprintf "value.%s" n) |> String.concat ", "
                     let ctorName = sprintf "%s%s" (typeFormat typeName) caseName
-                    yield sprintf "    | (:? %s as value) -> %s(%s)" ctorName aName dArgs
+                    match fields with
+                    | [] ->
+                        yield sprintf "    | :? %s -> %s" ctorName aName
+                    | _ -> 
+                        let dArgs = fields |> Seq.map (fun (n,_,_) -> sprintf "value.%s" n) |> String.concat ", "
+                        yield sprintf "    | :? %s as value -> %s(%s)" ctorName aName dArgs
                 yield "    | _ -> failwith \"not a union case\""
                     
             ]
@@ -863,8 +968,10 @@ module DomainTypeDescription =
             isTrivial = fun _ -> false  
             name = fun _ -> typeFormat typeName
             definition = definition >> Some
-            init = fun _ _ -> "failwith \"bad\""
-            update = fun _ _ _ _ -> "failwith \"bad\""
+            init = fun _ v -> sprintf "%s.%s(%s)" (typeFormat typeName) createMemberName v
+            update = fun _ rv t v -> 
+                if rv then sprintf "%s.%s(%s); %s" t updateMemberName v t
+                else sprintf "%s.%s(%s)" t updateMemberName v
             view = fun _ n -> n
             internalName = fun _ -> typeFormat typeName
         }
