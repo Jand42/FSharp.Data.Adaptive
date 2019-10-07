@@ -99,9 +99,10 @@ module ProjectInfo =
 
             let log = ignore
 
+            let projs = Dotnet.ProjInfo.Inspect.getResolvedP2PRefs
 
             file
-            |> Inspect.getProjectInfos log msbuildExec [getFscArgs] additionalArgs
+            |> Inspect.getProjectInfos log msbuildExec [projs; getFscArgs] additionalArgs
 
         netcore, results
 
@@ -257,15 +258,12 @@ module ProjectInfo =
 
             match info.debug with
             | DebugType.Off ->
-                yield "-g-"
+                yield "--debug-"
             | DebugType.Full -> 
-                yield "-g+"
                 yield "--debug:full"
             | DebugType.Portable -> 
-                yield "-g+"
                 yield "--debug:portable"
             | DebugType.PdbOnly -> 
-                yield "-g+"
                 yield "--debug:pdbonly"
                 
             for a in info.additional do
@@ -286,6 +284,8 @@ let generateFilesForProject (checker : FSharpChecker) (info : ProjectInfo) =
     let projDir = Path.GetDirectoryName info.project
     let options =
         checker.GetProjectOptionsFromCommandLineArgs(info.project, List.toArray args, DateTime.Now)
+
+
 
     for file in info.files do
         let path = Path.Combine(projDir, file)
@@ -323,7 +323,7 @@ let main _argv =
             keepAllBackgroundResolutions = false
         )
 
-    match ProjectInfo.tryOfProject ["Configuration", "Release"] projFile with
+    match ProjectInfo.tryOfProject [] projFile with
     | Ok info ->
         generateFilesForProject checker info
 

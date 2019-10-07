@@ -32,7 +32,7 @@ and DomainTypeDescription =
 module FSharpAttribute =
     let isAdaptor (a : FSharpAttribute) =
         match a.AttributeType.TryFullName with
-        | Some "FSharp.Data.Adaptive.CreateAdaptorAttribute" -> true
+        | Some "FSharp.Data.Adaptive.ModelTypeAttribute" -> true
         | _ -> false
         
     let isNonAdaptive (a : FSharpAttribute) =
