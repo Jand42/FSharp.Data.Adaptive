@@ -1209,3 +1209,13 @@ NUGET
       System.Collections.Immutable (>= 1.6)
     System.Runtime.CompilerServices.Unsafe (4.6)
     System.ValueTuple (4.5)
+
+GROUP WebSharper
+RESTRICTION: == netstandard2.0
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    FSharp.Core (4.7)
+    WebSharper (4.6.0.361)
+      FSharp.Core (>= 4.2.3)
+    WebSharper.FSharp (4.6.0.361)
+      WebSharper (4.6.0.361)

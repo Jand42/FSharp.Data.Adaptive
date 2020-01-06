@@ -1,2 +1,4 @@
 FSharp.Core
 System.Reflection.Emit.Lightweight
+group WebSharper
+  WebSharper.FSharp

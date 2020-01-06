@@ -4,11 +4,9 @@
 #if FABLE_COMPILER
 
 module private ShallowEqualityHelpers =
-    open Fable.Core
-    open Fable.Core.JsInterop
+    open WebSharper.JavaScript
 
-    [<Emit("$0 === $1")>]
-    let equals (a : 'a) (b : 'a) : bool = jsNative
+    let equals (a : 'a) (b : 'a) : bool = a ===. b
 
     let inline hash (a : 'a) = (a :> obj).GetHashCode()
 
